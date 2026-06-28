@@ -12,6 +12,9 @@
 *.csproj
 *.unityproj
 *.sln
+*.slnx
+.vsconfig
+.mcp.json
 *.suo
 *.tmp
 *.user

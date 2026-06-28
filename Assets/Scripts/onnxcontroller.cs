@@ -95,6 +95,13 @@ public class onnxcontroller : MonoBehaviour
     // Cleared only when the light turns green — prevents oscillation and stuck-recovery false triggers.
     private bool  stoppedForRed;
 
+    // ── Aura adaptive-safety hook ─────────────────────────────────
+    // When true, overrides all driving: cut throttle, full brakes, ease the wheel straight,
+    // and hold the car still. Set by AuraDemoReactor on a safety.alert (action="pull_over");
+    // cleared when the driver resumes. Read by the HUD via emergencyStop.
+    [HideInInspector] public bool emergencyStop;
+    public void SetEmergencyStop(bool on) => emergencyStop = on;
+
     // ─────────────────────────────────────────────────────────────
     // Start
     // ─────────────────────────────────────────────────────────────
@@ -137,6 +144,20 @@ public class onnxcontroller : MonoBehaviour
     {
         float dt       = Time.fixedDeltaTime;
         float speedKmh = rb.linearVelocity.magnitude * 3.6f;
+
+        // ── Aura: emergency pull-over (highest-priority override) ─────────
+        if (emergencyStop)
+        {
+            rlWC.motorTorque = 0f; rrWC.motorTorque = 0f;
+            flWC.brakeTorque = motorForce; frWC.brakeTorque = motorForce;
+            rlWC.brakeTorque = motorForce * 0.6f; rrWC.brakeTorque = motorForce * 0.6f;
+            appliedSteer = Mathf.MoveTowards(appliedSteer, 0f, steerRate * dt);
+            flWC.steerAngle = appliedSteer; frWC.steerAngle = appliedSteer;
+            if (speedKmh < 1.5f) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            SyncWheels();
+            hudSpeed = speedKmh;
+            return;
+        }
 
         // ── Red light ─────────────────────────────────────────────
         var redTL = TrafficLightManager.NearestRedAhead(transform);
